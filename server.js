@@ -16,7 +16,7 @@ db.connect(function (err) {
 
 app.use(express.json())
 
-const registrationRouter = require('./routes/registration')
-app.use('/registration', registrationRouter)
+const usersRouter = require('./routes/users')
+app.use('/users', usersRouter)
 
 app.listen(3000, () => console.log('Server Started'))

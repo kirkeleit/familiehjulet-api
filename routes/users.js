@@ -6,7 +6,7 @@ router.get('/', (req, res) => {
 })
 
 router.post('/:id', (req, res) => {
-    res.send('Hello World')
+    res.send(req.params.id)
 })
 
 module.exports = router

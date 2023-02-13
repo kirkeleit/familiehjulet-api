@@ -19,4 +19,7 @@ app.use(express.json())
 const usersRouter = require('./routes/users')
 app.use('/users', usersRouter)
 
+const familiesRouter = require('./routes/families')
+app.use('/families', familiesRouter)
+
 app.listen(3000, () => console.log('Server Started'))

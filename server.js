@@ -14,6 +14,8 @@ const app = express()
     //console.log("Connected to Database")
 //})
 
+const dbPool = require('./database')
+
 app.use(express.json())
 
 const usersRouter = require('./routes/users')

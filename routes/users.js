@@ -1,26 +1,16 @@
 const express = require('express')
 const router = express.Router()
-const mysql = require('mysql2')
 const crypto = require('crypto')
 const sgMail = require('@sendgrid/mail')
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: "familiehjulet"})
-
-db.connect(function (err) {
-  if (err) console.error(err)
-  console.log("Connected to Database in router users.js")
-})
+const dbPool = require('../database')
 
 router.get('/:id', (req, res) => {
   console.log("  Userinfo requested for "+req.params.id)
   var $sql = "SELECT UserID,Forename,Surname,EmailAddress,DateCreated FROM Users WHERE (UserID='"+req.params.id+"') LIMIT 1"
   try {
-    db.query($sql, function (err, result, fields) {
+    dbPool.query($sql, function (err, result, fields) {
       if (err) {
         console.log(err);
         return (res.status(500).json())
@@ -40,14 +30,14 @@ router.post('/', async (req, res) => {
     var UserID = crypto.randomUUID();
     console.log ("  User ID: "+UserID)
     var $sql = "INSERT INTO Users (UserID,EmailAddress) VALUES ('"+UserID+"','"+req.body.emailaddress+"')"
-    db.query($sql, function (err, result) {
+    dbPool.query($sql, function (err, result) {
       if (err) throw err;
       console.log("Added user to database.");
     });
     var AccessToken = crypto.randomUUID();
     console.log ("  Token ID: "+AccessToken)
     var $sql = "INSERT INTO Access_Tokens (UserID,AccessToken,DateCreated,DateExpiry) VALUES ('"+UserID+"','"+AccessToken+"',NOW(),date_add(NOW(),interval 30 minute))"
-    db.query($sql, function (err, result) {
+    dbPool.query($sql, function (err, result) {
       if (err) throw err;
       console.log("Created Access Token for registration login.");
     });
@@ -84,7 +74,7 @@ router.patch('/:id', (req, res) => {
   });
   sql = sql+"DateModified=NOW() WHERE UserID='"+req.params.id+"' LIMIT 1"
   console.log(sql)
-  db.query(sql, function (err, result, fields) {
+  dbPool.query(sql, function (err, result, fields) {
     if (err) {
       console.log(err);
       return (res.status(500).json())
@@ -99,7 +89,7 @@ router.delete('/:id', (req, res) => {
   
   var sql = "DELETE FROM Users WHERE UserID='"+req.params.id+"' LIMIT 1"
   console.log(sql)
-  db.query(sql, function (err, result, fields) {
+  dbPool.query(sql, function (err, result, fields) {
     if (err) {
       console.log(err);
       return (res.status(500).json())
@@ -113,7 +103,7 @@ router.get('/requestlogin/:id', (req, res) => {
   console.log("  Login requested for "+req.params.id)
   var $sql = "SELECT EmailAddress FROM Users WHERE (UserID='"+req.params.id+"') LIMIT 1"
   var EmailAddress = ""
-  db.query($sql, function (err, result1, fields) {
+  dbPool.query($sql, function (err, result1, fields) {
     if (err) {
       console.log(err);
       return (res.status(500).json())
@@ -123,7 +113,7 @@ router.get('/requestlogin/:id', (req, res) => {
     var AccessToken = crypto.randomUUID();
     console.log ("  Token ID: "+AccessToken)
     var $sql = "INSERT INTO Access_Tokens (UserID,AccessToken,DateCreated,DateExpiry) VALUES ('"+req.params.id+"','"+AccessToken+"',NOW(),date_add(NOW(),interval 30 minute))"
-    db.query($sql, function (err, result2) {
+    dbPool.query($sql, function (err, result2) {
       if (err) throw err;
       console.log("Created Access Token for registration login.");
   

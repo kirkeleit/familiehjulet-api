@@ -3,8 +3,9 @@ const router = express.Router()
 const crypto = require('crypto')
 
 const dbPool = require('../database')
+const TokenAuthorization = require("../authorization")
 
-router.get('/', (req, res) => {
+router.get('/', TokenAuthorization, (req, res) => {
   console.log("  Family list requested by "+req.body.UserID)
   var $sql = "SELECT f.FamilyID,f.Name,f.DateCreated,x.ACL FROM Families f LEFT JOIN Families_X_Users x ON (f.FamilyID=x.FamilyID) WHERE (x.UserID='"+req.body.UserID+"')"
   try {
@@ -23,7 +24,7 @@ router.get('/', (req, res) => {
   }
 })
 
-router.get('/:id', (req, res) => {
+router.get('/:id', TokenAuthorization, (req, res) => {
   console.log("  Family requested for "+req.params.id+" by "+req.body.UserID)
   var $sql = "SELECT f.FamilyID,f.Name,f.DateCreated,x.ACL FROM Families f LEFT JOIN Families_X_Users x ON (f.FamilyID=x.FamilyID) WHERE (f.FamilyID='"+req.params.id+"') AND (x.UserID='"+req.body.UserID+"') LIMIT 1"
   try {
@@ -42,7 +43,7 @@ router.get('/:id', (req, res) => {
   }
 })
 
-router.post('/', async (req, res) => {
+router.post('/', TokenAuthorization, async (req, res) => {
     console.log ("  New family: "+req.body.Name)
     var FamilyID = crypto.randomUUID();
     console.log ("  Family ID: "+FamilyID)
@@ -63,7 +64,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ "FamilyID": FamilyID})
 })
 
-/*router.patch('/:id', (req, res) => {
+/*router.patch('/:id', TokenAuthorization, (req, res) => {
   console.log("  Patching user for "+req.params.id)
   var User = {}
 
@@ -88,7 +89,7 @@ router.post('/', async (req, res) => {
   });
 })*/
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', TokenAuthorization, (req, res) => {
   console.log("  Deleting family "+req.params.id)
   
   var sql = "DELETE FROM Families WHERE FamilyID='"+req.params.id+"' LIMIT 1"

@@ -159,7 +159,7 @@ router.get('/login/:id', (req, res) => {
       const AccessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10m' })
       const RefreshToken = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET)
 
-      var $sql = "INSERT INTO Refresh_Tokens (RefreshToken) VALUES ('"+RefreshToken+"')"
+      var $sql = "INSERT INTO Refresh_Tokens (RefreshToken,UserID) VALUES ('"+RefreshToken+"','"+user.UserID+"')"
       dbPool.query($sql)
 
       res.status(200).json({ AccessToken: AccessToken, RefreshToken: RefreshToken })
@@ -169,7 +169,22 @@ router.get('/login/:id', (req, res) => {
 
 router.post('/token', (req, res) => {
   const RefreshToken = req.body.token
-  console.log(RefreshToken)
+  if (RefreshToken == null) return res.sendStatus(401)
+
+  var $sql = "SELECT RefreshToken FROM Refresh_Tokens WHERE (RefreshToken='"+RefreshToken+"') LIMIT 1"
+  dbPool.query($sql, function (err, resRefreshTokens, fields) {
+    if (err) {
+      console.log(err);
+      return (res.status(500).json())
+    }
+    console.log (resRefreshTokens.length)
+    if (resRefreshTokens.length == 0) return res.sendStatus(403)
+    jwt.verify(RefreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
+      if (err) return res.sendStatus(403)
+      const AccessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10m' })
+      res.status(200).json({ AccessToken: AccessToken })
+    })
+  })
 })
 
 module.exports = router

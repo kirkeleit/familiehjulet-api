@@ -9,17 +9,28 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 const dbPool = require('../database')
 const TokenAuthorization = require("../authorization");
 
-router.get('/', TokenAuthorization, (req, res) => {
-  console.log("  Userinfo requested for "+req.user.UserID)
-  var $sql = "SELECT UserID,Forename,Surname,EmailAddress,DateCreated FROM Users WHERE (UserID='"+req.user.UserID+"') LIMIT 1"
+router.get('/user/:id?', TokenAuthorization, (req, res) => {
+  let UserIDRequested;
+  if (req.params.id != undefined) {
+    console.log("params")
+    UserIDRequested = req.params.id;
+  } else {
+    console.log("token")
+    UserIDRequested = req.user.UserID;
+  }
+  console.log("  Userinfo requested for "+UserIDRequested)
+
+  var $sql = "SELECT UserID,Forename,Surname,EmailAddress,DateCreated FROM Users WHERE (UserID='"+UserIDRequested+"') LIMIT 1"
   try {
-    dbPool.query($sql, function (err, result, fields) {
+    dbPool.query($sql, function (err, resUsers, fields) {
       if (err) {
         console.log(err);
         return (res.status(500).json())
       }
-      console.log(result);
-      res.status(200).json({result})
+      console.log("  Users found with requested ID: "+resUsers.length)
+      if (resUsers.length == 0) return res.status(404).json();
+      console.log(resUsers);
+      res.status(200).json({resUsers})
     });
   }
   catch(err) {
@@ -28,28 +39,27 @@ router.get('/', TokenAuthorization, (req, res) => {
   }
 })
 
-router.post('/', async (req, res) => {
-    console.log ("  New user: "+req.body.emailaddress)
+router.post('/user/', async (req, res) => {
+    console.log ("  New user: "+req.body.Forename+" / "+req.body.EmailAddress)
     var UserID = crypto.randomUUID();
     console.log ("  User ID: "+UserID)
-    var $sql = "INSERT INTO Users (UserID,EmailAddress) VALUES ('"+UserID+"','"+req.body.emailaddress+"')"
+    var $sql = "INSERT INTO Users (UserID,Forename,EmailAddress) VALUES ('"+UserID+"','"+req.body.Forename+"','"+req.body.EmailAddress+"')"
     dbPool.query($sql, function (err, result) {
       if (err) throw err;
       console.log("Added user to database.");
     });
-    var AccessToken = crypto.randomUUID();
-    console.log ("  Token ID: "+AccessToken)
-    var $sql = "INSERT INTO Access_Tokens (UserID,AccessToken,DateCreated,DateExpiry) VALUES ('"+UserID+"','"+AccessToken+"',NOW(),date_add(NOW(),interval 30 minute))"
+    var AuthenticationToken = crypto.randomUUID();
+    console.log ("  Token ID: "+AuthenticationToken)
+    var $sql = "INSERT INTO Authentication_Tokens (UserID,AuthenticationToken,DateExpires) VALUES ('"+UserID+"','"+AuthenticationToken+"',date_add(NOW(),interval 30 minute))"
     dbPool.query($sql, function (err, result) {
       if (err) throw err;
-      console.log("Created Access Token for registration login.");
+      console.log("Created AuhtenticationToken for registration login.");
     });
     const msg = {
-      to: req.body.emailaddress,
+      to: req.body.EmailAddress,
       from: 'noreply@familiehjulet.no',
       subject: 'Velkommen til familiehjulet.no!',
-      text: 'Trykk på denne linken for å fortsette registreringen: '+process.env.BASE_URL+'auth/'+AccessToken
-      //html: '<strong>and easy to do anywhere, even with Node.js</strong>',
+      text: 'Hei '+req.body.Forename+'! Trykk på denne linken innen 30 minutt for å fortsette registreringen: '+process.env.BASE_URL+'auth/'+AuthenticationToken
     }
     sgMail
       .send(msg)
@@ -59,21 +69,28 @@ router.post('/', async (req, res) => {
       .catch((error) => {
         console.error(error)
       })
-    res.status(201).json({ "userid": UserID})
+    res.status(201).json()
 })
 
-router.patch('/:id', TokenAuthorization, (req, res) => {
-  const UserID = req.params.id
-  console.log("  Patching user for "+UserID)
-  var User = {}
+router.patch('/user/:id?', TokenAuthorization, (req, res) => {
+  let UserID;
+  if (req.params.id != undefined) {
+    console.log("params")
+    UserID = req.params.id;
+  } else {
+    console.log("token")
+    UserID = req.user.UserID;
+  }
+  console.log("  Patching user for UserID: "+UserID)
 
-  if (req.body.Forename) User.Forename = req.body.Forename
-  if (req.body.Surname) User.Surname = req.body.Surname
-  if (req.body.EmailAddress) User.EmailAddress = req.body.EmailAddress
+  var UserData = {}
+  if (req.body.Forename) UserData.Forename = req.body.Forename
+  if (req.body.Surname) UserData.Surname = req.body.Surname
+  if (req.body.EmailAddress) UserData.EmailAddress = req.body.EmailAddress
 
   var sql = "UPDATE Users SET ";
-  Object.entries(User).forEach(([key, value]) => {
-    const valueToSet = typeof User[key] === 'string' ? `'${value}'` : value;
+  Object.entries(UserData).forEach(([key, value]) => {
+    const valueToSet = typeof UserData[key] === 'string' ? `'${value}'` : value;
     sql += `${key}=${valueToSet},`;
   });
   sql = sql+"DateModified=NOW() WHERE UserID='"+UserID+"' LIMIT 1"
@@ -88,10 +105,18 @@ router.patch('/:id', TokenAuthorization, (req, res) => {
   });
 })
 
-router.delete('/:id', TokenAuthorization, (req, res) => {
-  console.log("  Deleting user "+req.params.id)
+router.delete('/user/:id?', TokenAuthorization, (req, res) => {
+  let UserID;
+  if (req.params.id != undefined) {
+    console.log("params")
+    UserID = req.params.id;
+  } else {
+    console.log("token")
+    UserID = req.user.UserID;
+  }
+  console.log("  Deleting user with UserID: "+UserID)
   
-  var sql = "DELETE FROM Users WHERE UserID='"+req.params.id+"' LIMIT 1"
+  var sql = "DELETE FROM Users WHERE UserID='"+UserID+"' LIMIT 1"
   console.log(sql)
   dbPool.query(sql, function (err, result, fields) {
     if (err) {
@@ -103,27 +128,35 @@ router.delete('/:id', TokenAuthorization, (req, res) => {
   });
 })
 
-router.post('/request_login/', (req, res) => {
+router.post('/login', (req, res) => {
   console.log("  Login requested for "+req.body.EmailAddress)
   var $sql = "SELECT UserID,EmailAddress FROM Users WHERE (EmailAddress='"+req.body.EmailAddress+"') LIMIT 1"
-  dbPool.query($sql, function (err, result1, fields) {
+  dbPool.query($sql, function (err, resUsers, fields) {
     if (err) {
       console.log(err);
       return (res.status(500).json())
     }
+    console.log("  Users matched for email address: "+resUsers.length)
+
+    // Returns 200 OK even if there is no user matching the requested email address. This is to prevent harvesting known email addresses.
+    if (resUsers.length == 0) return (res.status(200).json())
+
+    // Generate unique token for authentication purposes.
     var AuthenticationToken = crypto.randomUUID();
-    console.log ("  AuthenticationToken: "+AuthenticationToken)
-    var $sql = "INSERT INTO Authentication_Tokens (UserID,AuthenticationToken,DateCreated,DateExpires) VALUES ('"+result1[0].UserID+"','"+AuthenticationToken+"',NOW(),date_add(NOW(),interval 30 minute))"
+    console.log ("  Generated AuthenticationToken: "+AuthenticationToken)
+
+    // Stores the token i the database.
+    var $sql = "INSERT INTO Authentication_Tokens (UserID,AuthenticationToken,DateCreated,DateExpires) VALUES ('"+resUsers[0].UserID+"','"+AuthenticationToken+"',NOW(),date_add(NOW(),interval 30 minute))"
     dbPool.query($sql, function (err, result2) {
       if (err) throw err;
-      console.log("  Successfully created AuthenticationToken for login.");
+      console.log("  Successfully created and stored AuthenticationToken for future login.");
   
+      // Construct email message for login link.
       const msg = {
-        to: result1[0].EmailAddress,
+        to: resUsers[0].EmailAddress,
         from: 'noreply@familiehjulet.no',
         subject: 'Pålogging til familiehjulet.no',
-        text: 'Trykk på denne linken for å logge inn: '+process.env.BASE_URL+'users/login/'+AuthenticationToken
-        //html: '<strong>and easy to do anywhere, even with Node.js</strong>',
+        text: 'Trykk på denne linken innen 30 minutt for å logge inn: '+process.env.BASE_URL+'users/login/'+AuthenticationToken
       }
       sgMail
         .send(msg)
@@ -133,9 +166,9 @@ router.post('/request_login/', (req, res) => {
         .catch((error) => {
           console.error(error)
         })
-      res.status(200).json()
     });
   });
+  res.status(200).json()
 })
 
 router.get('/login/:id', (req, res) => {
@@ -159,7 +192,7 @@ router.get('/login/:id', (req, res) => {
       const AccessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10m' })
       const RefreshToken = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET)
 
-      var $sql = "INSERT INTO Refresh_Tokens (RefreshToken,UserID) VALUES ('"+RefreshToken+"','"+user.UserID+"')"
+      var $sql = "INSERT INTO Refresh_Tokens (RefreshToken,UserID,UserAgent,RemoteAddr) VALUES ('"+RefreshToken+"','"+user.UserID+"','"+req.headers['user-agent']+"','"+req.ip+"')"
       dbPool.query($sql)
 
       res.status(200).json({ AccessToken: AccessToken, RefreshToken: RefreshToken })
@@ -167,9 +200,10 @@ router.get('/login/:id', (req, res) => {
   })
 })
 
-router.post('/token', (req, res) => {
+router.post('/token/', (req, res) => {
   const RefreshToken = req.body.token
   if (RefreshToken == null) return res.sendStatus(401)
+  console.log("  RefreshToken: "+RefreshToken)
 
   var $sql = "SELECT RefreshToken FROM Refresh_Tokens WHERE (RefreshToken='"+RefreshToken+"') LIMIT 1"
   dbPool.query($sql, function (err, resRefreshTokens, fields) {
@@ -181,10 +215,33 @@ router.post('/token', (req, res) => {
     if (resRefreshTokens.length == 0) return res.sendStatus(403)
     jwt.verify(RefreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
       if (err) return res.sendStatus(403)
-      const AccessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10m' })
-      res.status(200).json({ AccessToken: AccessToken })
+      const user2 = { UserID: user.UserID }
+      const AccessToken2 = jwt.sign(user2, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10m' })
+      res.status(200).json({ AccessToken: AccessToken2 })
     })
   })
+})
+
+router.get('/token/', TokenAuthorization, (req, res) => {
+  const UserID = req.user.UserID;
+  console.log("  Tokens requested for "+UserID)
+  var $sql = "SELECT UserID,DateCreated,UserAgent,RemoteAddr FROM Refresh_Tokens WHERE (UserID='"+UserID+"')"
+  try {
+    dbPool.query($sql, function (err, resTokens, fields) {
+      if (err) {
+        console.log(err);
+        return (res.status(500).json())
+      }
+      console.log("  RefreshTokens found for UserID: "+resTokens.length)
+      if (resTokens.length == 0) return res.status(404).json();
+      console.log(resTokens);
+      res.status(200).json({resTokens})
+    });
+  }
+  catch(err) {
+    console.log(err);
+    res.status(400).json()
+  }
 })
 
 module.exports = router

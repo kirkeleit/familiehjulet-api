@@ -6,7 +6,7 @@ const dbPool = require('../database')
 const TokenAuthorization = require("../authorization")
 
 router.get('/', TokenAuthorization, (req, res) => {
-  console.log("  Family list requested by "+req.body.UserID)
+  console.log("  Family list requested by UserID: "+req.body.UserID)
   var $sql = "SELECT f.FamilyID,f.Name,f.DateCreated,x.ACL FROM Families f LEFT JOIN Families_X_Users x ON (f.FamilyID=x.FamilyID) WHERE (x.UserID='"+req.body.UserID+"')"
   try {
     dbPool.query($sql, function (err, result, fields) {
@@ -44,22 +44,23 @@ router.get('/:id', TokenAuthorization, (req, res) => {
 })
 
 router.post('/', TokenAuthorization, async (req, res) => {
-    console.log ("  New family: "+req.body.Name)
+    console.log("  Requested to create new family:")
+    console.log("    Name: "+req.body.Name)
     var FamilyID = crypto.randomUUID();
-    console.log ("  Family ID: "+FamilyID)
-    var UserID = req.body.UserID;
-    console.log ("  User ID: "+UserID)
+    console.log("    FamilyID: "+FamilyID)
+    var UserID = req.user.UserID;
+    console.log("    UserID: "+UserID)
     var $sql = "INSERT INTO Families (FamilyID,Name) VALUES ('"+FamilyID+"','"+req.body.Name+"')"
     dbPool.query($sql, function (err, result) {
       if (err) throw err;
-      console.log("Added family to database.");
+      console.log("  Added family to database successfully.");
     });
     var acl = {}
     acl.Administrator = 1;
     var $sql = "INSERT INTO Families_X_Users (FamilyID,UserID,ACL) VALUES ('"+FamilyID+"','"+UserID+"','"+JSON.stringify(acl)+"')"
     dbPool.query($sql, function (err, result) {
       if (err) throw err;
-      console.log("Added user as member of family.");
+      console.log("  Added user as member of family.");
     });
     res.status(201).json({ "FamilyID": FamilyID})
 })

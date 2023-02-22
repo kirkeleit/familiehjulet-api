@@ -2,11 +2,15 @@ require('dotenv').config()
 
 const express = require('express')
 const app = express()
-
+const cors = require('cors')
 
 const dbPool = require('./database')
 
 app.use(express.json())
+
+app.use(cors({
+    origin: "*"
+}))
 
 const usersRouter = require('./routes/users')
 app.use('/users', usersRouter)

@@ -158,14 +158,14 @@ router.post('/login', (req, res) => {
         subject: 'Pålogging til familiehjulet.no',
         text: 'Trykk på denne linken innen 30 minutt for å logge inn: '+process.env.BASE_URL+'users/login/'+AuthenticationToken
       }
-      sgMail
+      /*sgMail
         .send(msg)
         .then(() => {
           console.log('  Email sent to user with authentication link.')
         })
         .catch((error) => {
           console.error(error)
-        })
+        })*/
     });
   });
   res.status(200).json()

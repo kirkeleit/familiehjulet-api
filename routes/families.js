@@ -39,7 +39,7 @@ router.get('/:id', TokenAuthorization, (req, res) => {
   }
   catch(err) {
     console.log(err);
-    res.status(400).json()
+    res.status(400).json();
   }
 })
 

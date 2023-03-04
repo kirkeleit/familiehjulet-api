@@ -22,7 +22,7 @@ router.post('/expenses', TokenAuthorization, async (req, res) => {
 
 router.get('/expenses', TokenAuthorization, (req, res) => {
     console.log("  Expenses requested for UserID: "+req.user.UserID)
-    var $sql = "SELECT ExpenseID,Description,Cost FROM Budget_Expenses WHERE (UserID='"+req.user.UserID+"')"
+    var $sql = "SELECT E.ExpenseID,E.Description,E.Cost,C.CategoryID,C.Name FROM Budget_Expenses E LEFT JOIN Budget_Categories C ON (C.CategoryID=E.CategoryID) WHERE (E.UserID='"+req.user.UserID+"')"
     try {
       dbPool.query($sql, function (err, resExpenses, fields) {
         if (err) {

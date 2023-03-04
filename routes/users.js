@@ -59,16 +59,16 @@ router.post('/user/', async (req, res) => {
       to: req.body.EmailAddress,
       from: 'noreply@familiehjulet.no',
       subject: 'Velkommen til familiehjulet.no!',
-      text: 'Hei '+req.body.Forename+'! Trykk på denne linken innen 30 minutt for å fortsette registreringen: '+process.env.BASE_URL+'auth/'+AuthenticationToken
+      text: 'Hei '+req.body.Forename+'! Trykk på denne linken innen 30 minutt for å fortsette registreringen: '+process.env.BASE_URL+'/users/login/'+AuthenticationToken
     }
-    sgMail
+    /*sgMail
       .send(msg)
       .then(() => {
         console.log('Email sent to user with authentication link.')
       })
       .catch((error) => {
         console.error(error)
-      })
+      })*/
     res.status(201).json()
 })
 
@@ -156,8 +156,9 @@ router.post('/login', (req, res) => {
         to: resUsers[0].EmailAddress,
         from: 'noreply@familiehjulet.no',
         subject: 'Pålogging til familiehjulet.no',
-        text: 'Trykk på denne linken innen 30 minutt for å logge inn: '+process.env.BASE_URL+'users/login/'+AuthenticationToken
+        text: 'Trykk på denne linken innen 30 minutt for å logge inn: '+process.env.BASE_URL+'/users/login/'+AuthenticationToken
       }
+      console.log(msg)
       /*sgMail
         .send(msg)
         .then(() => {

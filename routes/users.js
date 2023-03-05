@@ -156,17 +156,17 @@ router.post('/login', (req, res) => {
         to: resUsers[0].EmailAddress,
         from: 'noreply@familiehjulet.no',
         subject: 'Pålogging til familiehjulet.no',
-        text: 'Trykk på denne linken innen 30 minutt for å logge inn: '+process.env.BASE_URL+'/users/login/'+AuthenticationToken
+        text: 'Trykk på denne linken innen 30 minutt for å logge inn: https://app.dev.familiehjulet.no/login/token/'+AuthenticationToken
       }
       console.log(msg)
-      /*sgMail
+      sgMail
         .send(msg)
         .then(() => {
           console.log('  Email sent to user with authentication link.')
         })
         .catch((error) => {
           console.error(error)
-        })*/
+        })
     });
   });
   res.status(200).json()

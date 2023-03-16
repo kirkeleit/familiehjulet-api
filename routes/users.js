@@ -146,11 +146,11 @@ router.post('/login', (req, res) => {
     console.log ("  Generated AuthenticationToken: "+AuthenticationToken)
 
     // Stores the token i the database.
-    var $sql = "INSERT INTO Authentication_Tokens (UserID,AuthenticationToken,DateCreated,DateExpires) VALUES ('"+resUsers[0].UserID+"','"+AuthenticationToken+"',NOW(),date_add(NOW(),interval 30 minute))"
+    var $sql = "INSERT INTO Authentication_Tokens (UserID,AuthenticationToken,DateCreated,DateExpires) VALUES ('"+resUsers[0].UserID+"','"+AuthenticationToken+"',NOW(),date_add(NOW(),interval 10 minute))"
     dbPool.query($sql, function (err, result2) {
       if (err) throw err;
       console.log("  Successfully created and stored AuthenticationToken for future login.");
-  
+
       // Construct email message for login link.
       const msg = {
         to: resUsers[0].EmailAddress,
@@ -167,14 +167,54 @@ router.post('/login', (req, res) => {
         .catch((error) => {
           console.error(error)
         })
+
+        const LoginData = { UserID: resUsers[0].UserID, AuthenticationToken: AuthenticationToken }
+        console.log(LoginData)
+
+        const LoginToken = jwt.sign(LoginData, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10m' })
+        res.status(200).json({ LoginToken: LoginToken })
     });
   });
-  res.status(200).json()
+  //res.status(200).json()
+})
+
+router.post('/login_check', (req, res) => {
+  console.log("  Login check for "+req.body.LoginToken)
+
+  jwt.verify(req.body.LoginToken, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403)
+    var $sql = "SELECT UserID FROM Authentication_Tokens WHERE (AuthenticationToken='"+user.AuthenticationToken+"') AND (DateAuthenticated Is Not Null) LIMIT 1"
+    dbPool.query($sql, function (err, resAuthenticationTokens, fields) {
+      if (err) {
+        console.log(err);
+        return (res.status(500).json())
+      }
+      console.log (resAuthenticationTokens.length)
+      if (resAuthenticationTokens.length == 0) {
+        return (res.status(401).json({ message: 'not authenticated' }))
+      } else {
+        const newUser = { UserID: user.UserID }
+        console.log(newUser)
+
+        const AccessToken = jwt.sign(newUser, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10m' })
+        const RefreshToken = jwt.sign(newUser, process.env.REFRESH_TOKEN_SECRET)
+
+        var $sql = "INSERT INTO Refresh_Tokens (RefreshToken,UserID,UserAgent,RemoteAddr) VALUES ('"+RefreshToken+"','"+newUser.UserID+"','"+req.headers['user-agent']+"','"+req.ip+"')"
+        dbPool.query($sql)
+
+        //return (res.status(200).json({ message: 'ok' }))
+        res.status(200).json({ AccessToken: AccessToken, RefreshToken: RefreshToken })
+      }
+    })
+  })
+  
+  
+  //res.status(200).json()
 })
 
 router.get('/login/:id', (req, res) => {
   console.log("  Login request for AuthenticationToken "+req.params.id)
-  var $sql = "SELECT UserID FROM Authentication_Tokens WHERE (AuthenticationToken='"+req.params.id+"') AND (DateExpires>NOW())LIMIT 1"
+  var $sql = "SELECT UserID FROM Authentication_Tokens WHERE (AuthenticationToken='"+req.params.id+"') AND (DateExpires>NOW()) LIMIT 1"
   dbPool.query($sql, function (err, resAuthenticationTokens, fields) {
     if (err) {
       console.log(err);
@@ -184,19 +224,20 @@ router.get('/login/:id', (req, res) => {
     if (resAuthenticationTokens.length == 0) {
       return (res.status(401).json())
     } else {
-      var $sql = "UPDATE Authentication_Tokens SET DateExpires=NOW() WHERE AuthenticationToken='"+req.params.id+"' LIMIT 1"
+      var $sql = "UPDATE Authentication_Tokens SET DateAuthenticated=NOW(),DateExpires=NOW() WHERE AuthenticationToken='"+req.params.id+"' LIMIT 1"
       dbPool.query($sql)
       
-      const user = { UserID: resAuthenticationTokens[0].UserID }
+      /*const user = { UserID: resAuthenticationTokens[0].UserID }
       console.log(user)
 
       const AccessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10m' })
       const RefreshToken = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET)
 
       var $sql = "INSERT INTO Refresh_Tokens (RefreshToken,UserID,UserAgent,RemoteAddr) VALUES ('"+RefreshToken+"','"+user.UserID+"','"+req.headers['user-agent']+"','"+req.ip+"')"
-      dbPool.query($sql)
+      dbPool.query($sql)*/
 
-      res.status(200).json({ AccessToken: AccessToken, RefreshToken: RefreshToken })
+      //res.status(200).json({ AccessToken: AccessToken, RefreshToken: RefreshToken })
+      res.status(200).json({ message: "Authentication Confirmed" })
     }
   })
 })
